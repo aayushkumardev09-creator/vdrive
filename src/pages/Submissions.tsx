@@ -150,18 +150,6 @@ www.vdrive`;
       // Prepare clean subject
       const cleanSubject = subject.replace(/^(Re:\s*)+/gi, '').trim();
 
-      // Finalize submission with thread/message context
-      console.log('Finalizing submission:', {
-        to: clientEmail,
-        mode: isReply ? 'REPLY' : 'NEW_THREAD',
-        threadId: job.gmail_thread_id,
-        parentMessageId: job.gmail_message_id,
-        candidates: candidates.map(c => c.name),
-        job_id: job.id,
-        subject: cleanSubject,
-        mail_content: emailBody
-      });
-
       // Call Submission Webhook
       const webhookUrl = import.meta.env.VITE_SUBMISSION_WEBHOOK_URL;
       if (webhookUrl) {

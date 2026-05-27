@@ -42,8 +42,6 @@ interface Candidate {
   dataStatus?: DataStatus;
 }
 
-const mockCandidates: Candidate[] = [];
-
 export default function Candidates() {
   const navigate = useNavigate();
   const [candidates, setCandidates] = useState<Candidate[]>([]);

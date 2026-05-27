@@ -9,7 +9,6 @@ import {
   Send, 
   Mail,
   Settings,
-  LogOut,
   ChevronRight
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';

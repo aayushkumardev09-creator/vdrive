@@ -10,9 +10,10 @@ Please be respectful and constructive in all interactions with other contributor
 
 ### Prerequisites
 
-- Node.js v18 or higher
-- npm or yarn package manager
+- Node.js 20+ (matches CI)
+- npm
 - A GitHub account
+- Supabase project and webhook URLs (see `.env.example`)
 
 ### Setup Development Environment
 
@@ -30,7 +31,8 @@ Please be respectful and constructive in all interactions with other contributor
 
 4. **Install dependencies**:
    ```bash
-   npm install
+   cp .env.example .env
+   npm ci
    ```
 
 5. **Create a feature branch**:
@@ -61,27 +63,24 @@ Please be respectful and constructive in all interactions with other contributor
 ### Code Style
 
 This project uses:
-- **Prettier** for code formatting
-- **ESLint** for code quality
-- **TypeScript** for type safety
-
-All code must adhere to these standards before submitting a PR.
+- **Prettier** for code formatting (optional locally via `npm run format`)
+- **TypeScript** for type safety (`npm run lint` runs `tsc --noEmit`)
 
 ### Before Committing
 
-1. **Format your code**:
+1. **Format your code** (optional):
    ```bash
-   npx prettier --write .
+   npm run format
    ```
 
-2. **Run linting**:
-   ```bash
-   npx eslint . --ext .js,.jsx,.ts,.tsx --fix
-   ```
-
-3. **Type check**:
+2. **Type check** (required):
    ```bash
    npm run lint
+   ```
+
+3. **Production build** (required):
+   ```bash
+   npm run build
    ```
 
 ### Commit Message Guidelines
@@ -131,10 +130,9 @@ chore: upgrade react to v19.1.0
    - Ensure your PR passes all CI checks
 
 3. **PR Requirements**:
-   - All tests pass
-   - Code is properly formatted
+   - CI passes (`npm run lint` and `npm run build`)
    - No TypeScript errors
-   - ESLint passes
+   - No committed secrets or `.env` files
    - At least one maintainer approval
 
 ### PR Description Template
@@ -168,13 +166,11 @@ Describe how you tested these changes
 ```
 vdrive/
 ├── src/
-│   ├── components/          # React components
-│   ├── pages/              # Page components
-│   ├── hooks/              # Custom React hooks
-│   ├── utils/              # Utility functions
-│   ├── services/           # API and external service integrations
-│   └── types/              # TypeScript type definitions
-├── workflows/              # Backend automation workflows
+│   ├── components/     # Layout and shared UI
+│   ├── pages/          # Route-level views
+│   └── lib/            # Supabase, config, AI, utilities
+├── workflows/          # Activepieces JSON exports
+├── .github/workflows/  # CI
 ├── package.json
 ├── tsconfig.json
 ├── vite.config.ts
@@ -199,10 +195,10 @@ npm run dev -- --port 3001
 ```
 
 ### Dependencies Issues
-Clear node_modules and reinstall:
+Clear node_modules and reinstall from the lockfile:
 ```bash
-rm -rf node_modules package-lock.json
-npm install
+rm -rf node_modules
+npm ci
 ```
 
 ### TypeScript Errors

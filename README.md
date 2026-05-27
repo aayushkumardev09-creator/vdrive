@@ -3,69 +3,96 @@
   <p><strong>An End-to-End Recruitment Operations Dashboard</strong></p>
 </div>
 
-## 📌 Overview
+## Overview
 
-**V Drive** is a modern recruitment operations dashboard built with React, TypeScript, and Vite. It serves as an end-to-end hiring pipeline, automating candidate intake, job ingestion, smart candidate matching, and recruiter note drafting using AI. 
+**V Drive** is a recruitment operations dashboard built with React, TypeScript, and Vite. It automates candidate intake, job ingestion, smart matching, and recruiter note drafting. Pipeline state lives in Supabase; inbox sync and email submission are handled via Activepieces webhooks (see [`workflows/`](workflows/)).
 
-Designed for efficiency and scalability, V Drive orchestrates real-world inbox and submission workflows via DriveMail and webhooks, backed by Supabase for real-time pipeline state management.
+## Features
 
-## ✨ Key Features
+- **Candidate intake** — Manual entry and CSV bulk upload with header mapping
+- **Job ingestion** — DriveMail sync via webhook (`VITE_DRIVEMAIL_SYNC_WEBHOOK_URL`)
+- **Smart match** — Supabase RPC scoring with client-side fallback
+- **AI assistance** — Groq (LLaMA 3) for summaries and recruiter notes (optional)
+- **Submissions** — Webhook delivery with Gmail thread/reply context
+- **Settings** — Profile and preferences in Supabase with `localStorage` fallback
 
-- **Candidate Intake**: Add candidates manually or via CSV bulk upload with intelligent header mapping and validation.
-- **Job Ingestion**: Webhook-triggered inbox synchronization via DriveMail.
-- **Smart Match Scoring**: Deterministic candidate ranking via Supabase RPC with a client-side fallback mechanism based on skills, seniority, and location relevance.
-- **AI-Powered Acceleration**: Integrated with LLaMA 3 via Groq for drafting strategic summaries and recruiter notes.
-- **Submission Delivery**: Webhook-based finalizing step supporting Gmail reply/thread contexts.
-- **Operational Controls**: Persistent user settings and profile management powered by Supabase with immediate localStorage fallback.
+## Tech stack
 
-## 🛠️ Tech Stack
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 19, TypeScript, Vite, React Router 7 |
+| Styling | Tailwind CSS v4, Motion, Lucide React |
+| Data | Supabase (PostgreSQL, RPC) |
+| Automation | Activepieces (`workflows/`) |
+| AI | Groq API (optional) |
 
-- **Frontend**: React 19, TypeScript, Vite, React Router DOM v7
-- **Styling**: Tailwind CSS v4, Motion/React, Lucide React
-- **Backend & State**: Supabase (PostgreSQL, RPC)
-- **AI Integration**: Groq API (LLaMA 3)
-- **Data Parsing**: PapaParse for CSV ingestion
-
-## 🚀 Getting Started
+## Getting started
 
 ### Prerequisites
 
-- Node.js (v18+ recommended)
-- A Supabase Project
-- A Groq API Key
+- **Node.js 20+** (matches CI)
+- A [Supabase](https://supabase.com) project
+- Activepieces instance with workflows from [`workflows/`](workflows/) (or equivalent webhooks)
+- [Groq API key](https://console.groq.com) (optional, for AI features)
 
-### Installation
+### Install
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/your-username/v-drive.git
-   cd v-drive
-   ```
+```bash
+git clone https://github.com/aayushkumardev09-creator/vdrive.git
+cd vdrive
+npm install
+cp .env.example .env
+# Edit .env with your values
+npm run dev
+```
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+Open [http://localhost:3000](http://localhost:3000).
 
-3. **Environment Setup:**
-   Copy the example environment file and configure your credentials.
-   ```bash
-   cp .env.example .env
-   ```
-   *Note: Ensure `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `GROQ_API_KEY` are set.*
+### Environment variables
 
-4. **Run the development server:**
-   ```bash
-   npm run dev
-   ```
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_SUPABASE_URL` | Yes | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Yes | Supabase anon (public) key |
+| `VITE_DRIVEMAIL_SYNC_WEBHOOK_URL` | Yes | Activepieces DriveMail sync webhook |
+| `VITE_SUBMISSION_WEBHOOK_URL` | Yes | Activepieces submission webhook |
+| `GROQ_API_KEY` | No | Enables AI drafting; app works without it |
 
-## 🏗️ Architecture & Implementation
+See [`.env.example`](.env.example) for a template.
 
-- **Frontend Architecture**: Utilizes React Router for navigation with lazy-loaded pages via `React.lazy` and `Suspense` for optimal performance.
-- **State Layer**: Supabase client is used for reading/updating pipeline tables and orchestrating Remote Procedure Calls (RPC).
-- **Integration Patterns**: Webhook orchestration for inbox syncing and submission payload delivery.
-- **Graceful Degradation**: The AI integrations safely degrade when `GROQ_API_KEY` is absent, ensuring core features remain operational.
+> **Security:** `GROQ_API_KEY` is injected at build time for local/dev convenience. Do not commit real keys. For production, prefer a backend proxy so API keys never ship in the browser bundle. See [SECURITY.md](SECURITY.md).
 
-## 📜 License
+### Scripts
 
-Distributed under the MIT License. See `LICENSE` for more information.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Development server (port 3000) |
+| `npm run build` | Production build to `dist/` |
+| `npm run preview` | Preview production build |
+| `npm run lint` | TypeScript check (`tsc --noEmit`) |
+| `npm run format` | Format source with Prettier |
+
+## Project structure
+
+```
+vdrive/
+├── src/
+│   ├── components/     # Layout and shared UI
+│   ├── pages/          # Route-level views
+│   └── lib/            # Supabase, config, AI, utilities
+├── workflows/          # Activepieces JSON exports
+├── .github/workflows/  # CI (typecheck + build)
+└── ...
+```
+
+## Automation workflows
+
+Import the JSON files in [`workflows/`](workflows/) into [Activepieces](https://www.activepieces.com/) and connect your Supabase and email integrations. See [`workflows/README.md`](workflows/README.md).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+MIT — see [LICENSE](LICENSE).

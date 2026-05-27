@@ -1,6 +1,8 @@
 # Webhook Workflows (Automation)
 
-This directory contains the actual orchestration logic (exported as JSON) that powers the V Drive backend webhooks. These workflows were built and designed specifically for **Activepieces**. By importing these files into your Activepieces environment, you can recreate the full end-to-end data pipeline.
+This directory contains orchestration logic (exported as JSON) for the V Drive backend webhooks. These workflows are designed for **[Activepieces](https://www.activepieces.com/)**. Import them into your instance and configure **Supabase** and **email** connections — do not commit real API keys into these files.
+
+> After import, re-link each Supabase step to your project connection. Connection IDs in the JSON (e.g. `{{connections['...']}}`) are instance-specific and must be updated in the Activepieces UI.
 
 ## 📂 Included Workflows
 
