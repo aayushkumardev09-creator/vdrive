@@ -1,216 +1,72 @@
-V DRIVE (v1) — Project Description (resume / public post ready)
+V DRIVE (v1) — Recruitment Ops Dashboard
 
-1) What this project is
-V Drive (v1) is a web-based recruitment operations dashboard built with React + TypeScript. It manages an end-to-end hiring pipeline:
-- Import candidates (manual add + CSV bulk upload with column mapping)
-- Ingest/update job postings (via DriveMail webhook trigger)
-- Run “Smart Match” to score and rank candidates for a chosen job (AI-assisted workflow + deterministic scoring fallback)
-- Select candidates and generate recruiter notes + submission email content (Groq LLM)
-- Finalize submissions by calling an external Submission Webhook (supports Gmail thread reply mode)
-- Configure operational settings (loaded/saved from Supabase with localStorage fallback)
+1. Project Overview
+V Drive (v1) is a React and TypeScript-based recruitment operations dashboard that manages an end-to-end hiring pipeline. It streamlines candidate management, job matching, and recruiter communications.
 
-2) Product workflow (how a user uses it)
+2. Core Workflows
 A. Dashboard (/)
-- Shows pipeline stats from Supabase (total candidates, pending jobs, sent submissions, total jobs)
-- Provides entry points to: Upload Candidates and Jobs
-- Shows “Recent Jobs”, “New Candidates”, and “Recent Sent Submissions”
+- Operational overview with real-time counts and recent activity sourced from Supabase.
+- Quick navigation to Jobs and Upload flows.
 
 B. Jobs (/jobs)
-- Lists jobs from Supabase with search + status filter (all/pending/sent)
-- Job states:
-  - jobs.status: “active” | “paused” (pause/resume)
-  - jobs._info: used to indicate “sent” vs not sent
-- Clicking a job opens a side drawer containing:
-  - Role overview
-  - Required skills (parsed from comma-separated skills)
-  - Raw internal email content (raw_email)
-  - Entry point to run Smart Match for that job
+- Browse jobs with status filtering.
+- Detailed role views and entry points to the Smart Match system.
+- Job states are tracked via status and pipeline marker fields.
 
 C. DriveMail Sync (/drivemail)
-- Triggers a backend sync engine using VITE_DRIVEMAIL_SYNC_WEBHOOK_URL
-- Sends JSON payload containing source/action to fetch latest jobs from connected inboxes
-- Shows success/error UI feedback
+- Triggers a backend sync job using VITE_DRIVEMAIL_SYNC_WEBHOOK_URL.
+- Sends a JSON payload to fetch and update the latest jobs from connected inboxes.
 
 D. Smart Match (/smart-match)
-Two-stage experience:
-1) Jobs view
-- Shows all jobs (search + tabs: all/new/sent)
-- Selecting “Match Candidates” transitions to matching mode for that job
-
-2) Matching results
-- When a job is selected, the app attempts to call a Supabase RPC:
-  - supabase.rpc('match_candidates', { job_id: job.id })
-  - if that fails, tries a second parameter shape: { input_job_id: job.id }
-- If RPC fails/unavailable, it falls back to client-side matching:
-  - Skills overlap (dominant scoring component)
-  - Experience seniority matching based on numeric years extracted from experience strings
-  - Location matching (exact/remote/partial)
-  - Role keyword context match
-- Candidate list supports:
-  - selecting multiple candidates via checkboxes
-  - search filtering by name + skills
-  - batch send to Submissions (/submissions) via router state
-
-AI integration in Smart Match:
-- Optional “AI Strategic Insights” button generates a short executive summary based on top candidates.
-- Uses Groq-based chat call helper (src/lib/ai.ts).
+- Matches candidates to a selected job.
+- Primary scoring is handled via Supabase RPC (match_candidates).
+- Fallback client-side scoring evaluates skills overlap, experience seniority, location relevance, and role keyword context.
+- Supports multi-candidate selection and batch handoff to Submissions.
+- Features optional AI-driven "Strategic Insights" for executive summaries.
 
 E. Submissions (/submissions)
-- Requires navigation state from Smart Match (job + selected candidates); otherwise redirects back.
-- Builds:
-  - subject line (supports reply mode if Gmail thread metadata exists)
-  - email body including candidates + their AI scores
-  - recruiter notes textarea (editable)
-- AI enhancement:
-  - “Suggest with AI” rewrites recruiter notes using Groq to be more professional/persuasive.
-- Sending:
-  - calls VITE_SUBMISSION_WEBHOOK_URL with thread/message context and payload
-  - payload includes: job_id, subject, mail_content, to, mode (NEW_THREAD vs REPLY), thread_id, message_id
-- UI marks the submission as sent after a short delay.
+- Constructs email subjects and bodies from job details and selected candidates.
+- Includes editable recruiter notes with an optional AI "Suggest with AI" rewriting feature.
+- Sends the submission payload to VITE_SUBMISSION_WEBHOOK_URL with thread/message context.
 
 F. Candidates (/candidates)
-- Reads candidates from Supabase ordered by created_at desc
-- Derives a UI dataStatus from fields:
-  - _info === 'sent' -> Sent
-  - missing name/email -> Incomplete
-  - otherwise -> Valid
-- Supports:
-  - search by name/email
-  - filter by status (All/Sent/Valid/Incomplete/Skipped)
-  - row selection + bulk delete (Supabase delete in('id', ids))
-  - CSV export (client-side generated)
-  - Add Candidate modal (manual insert)
+- Operational UI with search, status filtering, and bulk delete functionalities.
+- Client-side export to CSV.
 
 G. Upload Candidates (/upload)
-Multi-step wizard:
-1) Upload File
-- Drag & drop / browse
-- UI mentions CSV/XLS/XLSX; actual parsing logic uses PapaParse (CSV header parsing).
-
-2) Map Columns
-- Reads CSV headers
-- Auto-suggests mapping into fields:
-  - id, name, email, skills, experience, location, resume, created_at, ignore
-
-3) Validate & Review
-- Converts raw CSV rows into a ParsedRow model
-- Basic validation:
-  - requires name and email
-  - marks rows as valid/invalid with error list
-- Finalize upload:
-  - inserts only “valid” rows into Supabase candidates table
+- Multi-step upload wizard for CSV files.
+- Features header-to-field mapping, row validation (requiring name and email), and direct insertion of valid rows into Supabase.
 
 H. Settings (/settings)
-- Tabs: Profile, Workflow, Upload, Email, Security
-- Loads settings from Supabase table “settings” (single row assumption) and falls back to localStorage.
-- Save:
-  - writes to localStorage immediately
-  - then upserts to Supabase settings with id: 1
+- Profile and workflow settings persist in a Supabase single-row "settings" pattern.
+- Immediate responsive updates are handled via localStorage fallback.
 
-3) Key implementation details (what to mention technically)
-- Frontend architecture
-  - React Router routes with a shared DashboardLayout
-  - Lazy-loaded pages (React.lazy + Suspense)
-  - Table-heavy operational UI with modals/drawers
-  - motion/react for transitions and animated overlays
+3. Technical Architecture
+- Frontend: React Router, shared DashboardLayout, and lazy-loaded pages via React.lazy and Suspense.
+- UI Framework: Tailwind CSS combined with a custom cn() utility for class composition.
+- Data Layer: Supabase client for reading/updating pipeline state and executing RPC calls.
+- AI Integration: Groq API client for summaries and note drafting, designed with graceful degradation if the API key is missing.
 
-- Styling
-  - Tailwind CSS (utility-first), with cn() helper for class composition.
+4. Technology Stack
+- Framework: React 19, TypeScript, Vite
+- Routing: React Router DOM v7
+- Styling: Tailwind CSS (@tailwindcss/vite), motion/react, lucide-react
+- Backend/DB: @supabase/supabase-js
+- Utilities: PapaParse (CSV parsing)
 
-- Data layer
-  - Supabase client used for:
-    - reading dashboard/candidate/job data
-    - inserting candidates via upload/add flows
-    - updating job.status (pause/resume)
-    - deleting candidates
-    - calling RPC match_candidates (with fallback)
-    - loading/saving settings
-
-- Integration patterns
-  - Webhook-driven workflows:
-    - DriveMail sync trigger (FETCH_JOBS)
-    - Submission finalize trigger (submission webhook payload)
-
-- AI integration
-  - Groq chat helper (src/lib/ai.ts) used for:
-    - Smart Match executive summaries
-    - Submissions recruiter note enhancement
-  - AI features degrade gracefully when Groq API key is missing.
-
-4) Tech stack (dependencies / tooling)
-- React 19
-- TypeScript
-- Vite
-- React Router DOM v7
-- Tailwind CSS + @tailwindcss/vite
-- motion/react
-- lucide-react
-- @supabase/supabase-js
-- PapaParse for CSV parsing
-- CI/build:
-  - GitHub Actions workflow in .github/workflows/ci.yml
-  - npm ci
-  - lint: tsc --noEmit
-  - build: vite build
-
-5) Environment variables (deployment essentials)
-App performs fail-fast validation of required env vars on startup (src/lib/config.ts + main.tsx).
-
-Required (production gating):
+5. Environment Configuration
+Required variables for production build:
 - VITE_SUPABASE_URL
 - VITE_SUPABASE_ANON_KEY
 - VITE_DRIVEMAIL_SYNC_WEBHOOK_URL
 - VITE_SUBMISSION_WEBHOOK_URL
+- GROQ_API_KEY (Optional for AI features)
 
-AI key:
-- GROQ_API_KEY
-  - Used by src/lib/ai.ts
-  - If missing, AI endpoints return an error message instead of producing AI output.
+6. Database Schema (Supabase)
+- jobs: Job metadata and pipeline marker fields.
+- candidates: Candidate profiles and pipeline markers.
+- settings: Single-row configuration shape containing profile, workflow, and email settings.
 
-Sentry:
-- There is a Sentry init stub (src/lib/sentry.ts) that is currently a no-op.
-
-6) Expected Supabase schema (inferred from code usage)
-Tables referenced:
-- jobs
-  - Fields used: id, job_title, location, experience, skills, role_overview, raw_email, created_at, status, _info
-  - Gmail metadata fields used: gmail_thread_id, gmail_message_id
-  - Dashboard uses client_email: client_email
-
-- candidates
-  - Fields used: id, name, email, skills, experience, location, created_at, _info
-
-- settings
-  - Loaded via .single(); saved via upsert with id=1
-  - Expected shape (inferred): profile, workflow, emailSettings, updated_at
-
-RPC referenced:
-- match_candidates
-  - Called with two possible parameter names (job_id or input_job_id).
-
-Important semantic field:
-- jobs._info and candidates._info are treated as pipeline markers.
-  - when jobs._info === 'sent' => “Sent” state
-  - when candidates._info === 'sent' => “Sent” state
-
-7) Notable v1 gaps / caveats (honest “real-world” notes)
-- Upload UI claims support for Excel formats, but the implemented parsing is CSV-focused using PapaParse.
-- AI helper uses process.env.GROQ_API_KEY; in Vite apps env access is usually import.meta.env.
-  - This can require specific build-time/env setup for AI to work.
-- Jobs page shows delete icon, but delete action is not fully implemented in the provided v1 code.
-- Sentry integration exists as a stub but is intentionally no-op to avoid build failures.
-
-8) What this project represents (value proposition)
-V Drive is a practical recruitment automation interface that combines:
-- Operational tooling for managing candidates and jobs
-- Deterministic matching logic for consistent scoring
-- LLM-based drafting and executive summaries for recruiter acceleration
-- Webhook-driven orchestration for inbox sync and external submission delivery
-
-9) How to present it on a resume / interview (short version)
-- Built a full recruitment pipeline dashboard with React + TypeScript.
-- Integrated Supabase for persistent state across jobs, candidates, and workflow settings.
-- Implemented “Smart Match” scoring with Supabase RPC and client-side fallback logic.
-- Added Groq-powered AI features for recruiter notes and strategic match insights.
-- Designed webhook-based flows for inbox sync (DriveMail) and submission finalization (including Gmail reply-mode context).
-
+7. System Constraints & Considerations
+- File upload UI is optimized specifically for CSV parsing (via PapaParse).
+- Full AI functionality relies on the presence of GROQ_API_KEY at runtime.

@@ -26,10 +26,10 @@ export default function Settings() {
 
   // Form States
   const [profile, setProfile] = useState({
-    fullName: 'V Drive Admin',
-    jobTitle: 'Account Operations Lead',
-    email: 'operations@vdrive.ai',
-    location: 'London (GMT+1)'
+    fullName: 'vdrive',
+    jobTitle: 'Recruitment Operations',
+    email: '',
+    location: ''
   });
 
   const [workflow, setWorkflow] = useState({
@@ -39,7 +39,7 @@ export default function Settings() {
   });
 
   const [emailSettings, setEmailSettings] = useState({
-    signature: 'Regards,\nV Drive Recruitment Operations\nwww.vdrive.ai'
+    signature: 'Regards,\nvdrive'
   });
 
   const loadSettings = async () => {
@@ -126,7 +126,7 @@ export default function Settings() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">V Drive Settings</h1>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">vdrive Settings</h1>
           <p className="text-slate-500 text-sm font-medium">Manage your V Drive preferences and recruiting workflow configurations.</p>
         </div>
         <button 

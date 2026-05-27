@@ -1,0 +1,677 @@
+﻿{
+  "name": "email ingestion2",
+  "type": "SHARED",
+  "summary": "",
+  "description": "",
+  "tags": [],
+  "blogUrl": "",
+  "metadata": {
+    "externalId": "ces2XZE8wnDcpSLRqHAY9"
+  },
+  "author": "ScaleUp doe",
+  "categories": [],
+  "pieces": [
+    "@activepieces/piece-webhook",
+    "@activepieces/piece-gmail",
+    "@activepieces/piece-supabase",
+    "@activepieces/piece-groq",
+    "@activepieces/piece-delay"
+  ],
+  "flows": [
+    {
+      "displayName": "email ingestion2",
+      "trigger": {
+        "name": "trigger",
+        "valid": true,
+        "displayName": "Catch Webhook",
+        "nextAction": {
+          "name": "step_3",
+          "type": "PIECE",
+          "valid": true,
+          "settings": {
+            "input": {
+              "to": "scaleupbizsolutions@gmail.com",
+              "auth": "{{connections['nCTfiJxNxdVB7EzcBDJP4']}}",
+              "label": null,
+              "content": "c2c OR w2 OR visa OR rate OR client OR implementation OR contract OR experience OR location OR skills",
+              "subject": "requirement OR hiring OR position OR opening OR consultant OR developer OR engineer OR architect OR remote OR hybrid OR contract OR urgent OR job OR req",
+              "category": null,
+              "after_date": "2026/5/11",
+              "max_results": "50",
+              "has_attachment": false,
+              "include_spam_trash": false
+            },
+            "pieceName": "@activepieces/piece-gmail",
+            "actionName": "gmail_search_mail",
+            "sampleData": {},
+            "pieceVersion": "0.12.0",
+            "propertySettings": {
+              "to": {
+                "type": "MANUAL"
+              },
+              "from": {
+                "type": "MANUAL"
+              },
+              "label": {
+                "type": "MANUAL"
+              },
+              "content": {
+                "type": "MANUAL"
+              },
+              "subject": {
+                "type": "MANUAL"
+              },
+              "category": {
+                "type": "MANUAL"
+              },
+              "after_date": {
+                "type": "MANUAL"
+              },
+              "before_date": {
+                "type": "MANUAL"
+              },
+              "max_results": {
+                "type": "MANUAL"
+              },
+              "has_attachment": {
+                "type": "MANUAL"
+              },
+              "attachment_name": {
+                "type": "MANUAL"
+              },
+              "include_spam_trash": {
+                "type": "MANUAL"
+              }
+            },
+            "errorHandlingOptions": {
+              "retryOnFailure": {
+                "value": false
+              },
+              "continueOnFailure": {
+                "value": false
+              }
+            }
+          },
+          "nextAction": {
+            "name": "step_1",
+            "skip": false,
+            "type": "LOOP_ON_ITEMS",
+            "valid": true,
+            "settings": {
+              "items": "{{step_3['results']['messages']}}",
+              "sampleData": {}
+            },
+            "displayName": "Loop on Items",
+            "firstLoopAction": {
+              "name": "step_4",
+              "skip": false,
+              "type": "PIECE",
+              "valid": true,
+              "settings": {
+                "input": {
+                  "auth": "{{connections['nCTfiJxNxdVB7EzcBDJP4']}}",
+                  "message_id": "{{step_1['item']['id']}}"
+                },
+                "pieceName": "@activepieces/piece-gmail",
+                "actionName": "gmail_get_mail",
+                "sampleData": {},
+                "pieceVersion": "0.12.0",
+                "propertySettings": {
+                  "message_id": {
+                    "type": "MANUAL"
+                  }
+                },
+                "errorHandlingOptions": {
+                  "retryOnFailure": {
+                    "value": false
+                  },
+                  "continueOnFailure": {
+                    "value": false
+                  }
+                }
+              },
+              "nextAction": {
+                "name": "step_8",
+                "skip": false,
+                "type": "PIECE",
+                "valid": true,
+                "settings": {
+                  "input": {
+                    "auth": "{{connections['ucTnKLur23DiRoyzJeh2g']}}",
+                    "page": 1,
+                    "filters": [
+                      {
+                        "field": "gmail_thread_id",
+                        "value": "{{step_4['messageId']}}",
+                        "operator": "eq"
+                      }
+                    ],
+                    "pageSize": 20,
+                    "table_name": "jobs",
+                    "countOption": "exact"
+                  },
+                  "pieceName": "@activepieces/piece-supabase",
+                  "actionName": "search_rows",
+                  "sampleData": {},
+                  "pieceVersion": "0.1.5",
+                  "propertySettings": {
+                    "page": {
+                      "type": "MANUAL"
+                    },
+                    "columns": {
+                      "type": "MANUAL"
+                    },
+                    "filters": {
+                      "type": "MANUAL"
+                    },
+                    "pageSize": {
+                      "type": "MANUAL"
+                    },
+                    "table_name": {
+                      "type": "MANUAL"
+                    },
+                    "countOption": {
+                      "type": "MANUAL"
+                    }
+                  },
+                  "errorHandlingOptions": {
+                    "retryOnFailure": {
+                      "value": false
+                    },
+                    "continueOnFailure": {
+                      "value": false
+                    }
+                  }
+                },
+                "nextAction": {
+                  "name": "step_11",
+                  "skip": false,
+                  "type": "ROUTER",
+                  "valid": true,
+                  "children": [
+                    null,
+                    {
+                      "name": "step_5",
+                      "skip": false,
+                      "type": "CODE",
+                      "valid": true,
+                      "settings": {
+                        "input": {
+                          "email": "{{step_4}}"
+                        },
+                        "sampleData": {},
+                        "sourceCode": {
+                          "code": "export const code = async (inputs) => {\n  const email = inputs.email;\n\n  return {\n    subject: email.subject || \"\",\n    from: email.from?.value?.[0]?.address || \"\",\n    body: email.text || email.html || \"\"\n  };\n};",
+                          "packageJson": "{}"
+                        },
+                        "errorHandlingOptions": {
+                          "retryOnFailure": {
+                            "value": false
+                          },
+                          "continueOnFailure": {
+                            "value": false
+                          }
+                        }
+                      },
+                      "nextAction": {
+                        "name": "step_6",
+                        "skip": false,
+                        "type": "PIECE",
+                        "valid": true,
+                        "settings": {
+                          "input": {
+                            "auth": "{{connections['RU4UZ8Rb2WSfxDYgpslTe']}}",
+                            "topP": 1,
+                            "model": "llama-3.1-8b-instant",
+                            "roles": [
+                              {
+                                "role": "system",
+                                "content": "You are a helpful assistant."
+                              }
+                            ],
+                            "prompt": "You are a strict JSON extraction engine.\nExtract job details and return ONLY JSON.\nFormat:\n{\n  \"job_title\": string | null,\n  \"location\": string | null,\n  \"experience\": string | null,\n  \"visa\": string | null,\n  \"skills\": string[] | null,\n  \"role_overview\": string | null\n}\nRules:\n- ONLY JSON\n- No explanation\n- No extra text\n- No markdown\n- No wrapping\n- No array\n- Always return object\n- If missing → null\n- Extract ALL relevant details present in email\nEmail:\n{{step_5['body']}}",
+                            "maxTokens": 2048,
+                            "temperature": "0",
+                            "presencePenalty": 0.6,
+                            "frequencyPenalty": 0
+                          },
+                          "pieceName": "@activepieces/piece-groq",
+                          "actionName": "ask-ai",
+                          "sampleData": {},
+                          "pieceVersion": "0.2.4",
+                          "propertySettings": {
+                            "topP": {
+                              "type": "MANUAL"
+                            },
+                            "model": {
+                              "type": "MANUAL"
+                            },
+                            "roles": {
+                              "type": "MANUAL"
+                            },
+                            "prompt": {
+                              "type": "MANUAL"
+                            },
+                            "maxTokens": {
+                              "type": "MANUAL"
+                            },
+                            "memoryKey": {
+                              "type": "MANUAL"
+                            },
+                            "temperature": {
+                              "type": "MANUAL"
+                            },
+                            "presencePenalty": {
+                              "type": "MANUAL"
+                            },
+                            "frequencyPenalty": {
+                              "type": "MANUAL"
+                            }
+                          },
+                          "errorHandlingOptions": {
+                            "retryOnFailure": {
+                              "value": false
+                            },
+                            "continueOnFailure": {
+                              "value": false
+                            }
+                          }
+                        },
+                        "nextAction": {
+                          "name": "step_7",
+                          "skip": false,
+                          "type": "CODE",
+                          "valid": true,
+                          "settings": {
+                            "input": {
+                              "ai_response": "{{step_6[0]['Content']}}"
+                            },
+                            "sampleData": {},
+                            "sourceCode": {
+                              "code": "export const code = async (inputs) => {\n  try {\n    let raw = inputs.ai_response;\n\n    // Step 1: remove wrapping if it's stringified JSON\n    if (typeof raw !== \"string\") {\n      raw = JSON.stringify(raw);\n    }\n\n    // Step 2: extract JSON inside string\n    const match = raw.match(/\\{[\\s\\S]*\\}/);\n\n    if (!match) {\n      return {\n        error: \"No JSON found\",\n        raw_output: raw\n      };\n    }\n\n    let cleaned = match[0];\n\n    // Step 3: parse JSON safely\n    const parsed = JSON.parse(cleaned);\n\n    return parsed;\n\n  } catch (err) {\n    return {\n      error: \"Parsing failed\",\n      raw_output: inputs.ai_response\n    };\n  }\n};",
+                              "packageJson": "{}"
+                            },
+                            "errorHandlingOptions": {
+                              "retryOnFailure": {
+                                "value": false
+                              },
+                              "continueOnFailure": {
+                                "value": false
+                              }
+                            }
+                          },
+                          "nextAction": {
+                            "name": "step_9",
+                            "skip": false,
+                            "type": "CODE",
+                            "valid": true,
+                            "settings": {
+                              "input": {
+                                "job": "{{step_7}}",
+                                "canonical": "{{step_2['canonical_key']}}",
+                                "raw_email": "{{step_5['body']}}"
+                              },
+                              "sampleData": {},
+                              "sourceCode": {
+                                "code": "export const code = async (inputs) => {\n  const job = inputs.job;\n\n  return {\n    job_title: job.job_title || null,\n    location: job.location || null,\n    experience: job.experience || null,\n    visa: job.visa || null,\n\n    skills: Array.isArray(job.skills)\n      ? job.skills.join(\", \")\n      : job.skills || null,\n\n    role_overview: job.role_overview || null,\n    raw_email: inputs.raw_email || \"\",\n    source: \"gmail\",\n    created_at: new Date().toISOString()\n  };\n};",
+                                "packageJson": "{}"
+                              },
+                              "errorHandlingOptions": {
+                                "retryOnFailure": {
+                                  "value": false
+                                },
+                                "continueOnFailure": {
+                                  "value": false
+                                }
+                              }
+                            },
+                            "nextAction": {
+                              "name": "step_2",
+                              "skip": false,
+                              "type": "PIECE",
+                              "valid": true,
+                              "settings": {
+                                "input": {
+                                  "auth": "{{connections['ucTnKLur23DiRoyzJeh2g']}}",
+                                  "row_data": {
+                                    "visa": "{{step_9['visa']}}",
+                                    "skills": "{{step_9['skills']}}",
+                                    "source": "{{step_9['source']}}",
+                                    "location": "{{step_9['location']}}",
+                                    "job_title": "{{step_9['job_title']}}",
+                                    "raw_email": "{{step_9['raw_email']}}",
+                                    "created_at": "{{step_4['date']}}",
+                                    "experience": "{{step_9['experience']}}",
+                                    "role_overview": "{{step_9['role_overview']}}",
+                                    "gmail_thread_id": "{{step_4['messageId']}}",
+                                    "gmail_message_id": "{{step_4['id']}}"
+                                  },
+                                  "return_row": true,
+                                  "table_name": "jobs"
+                                },
+                                "pieceName": "@activepieces/piece-supabase",
+                                "actionName": "create_row",
+                                "sampleData": {},
+                                "pieceVersion": "0.1.4",
+                                "propertySettings": {
+                                  "row_data": {
+                                    "type": "MANUAL",
+                                    "schema": {
+                                      "id": {
+                                        "type": "SHORT_TEXT",
+                                        "required": false,
+                                        "description": "Type: uuid - Leave empty for auto-generation",
+                                        "displayName": "id (auto-generated)"
+                                      },
+                                      "visa": {
+                                        "type": "LONG_TEXT",
+                                        "required": false,
+                                        "description": "Type: string",
+                                        "displayName": "visa"
+                                      },
+                                      "_info": {
+                                        "type": "LONG_TEXT",
+                                        "required": false,
+                                        "description": "Type: string",
+                                        "displayName": "_info"
+                                      },
+                                      "error": {
+                                        "type": "LONG_TEXT",
+                                        "required": false,
+                                        "description": "Type: string",
+                                        "displayName": "error"
+                                      },
+                                      "skills": {
+                                        "type": "LONG_TEXT",
+                                        "required": false,
+                                        "description": "Type: string",
+                                        "displayName": "skills"
+                                      },
+                                      "source": {
+                                        "type": "LONG_TEXT",
+                                        "required": false,
+                                        "description": "Type: string",
+                                        "displayName": "source"
+                                      },
+                                      "location": {
+                                        "type": "LONG_TEXT",
+                                        "required": false,
+                                        "description": "Type: string",
+                                        "displayName": "location"
+                                      },
+                                      "job_title": {
+                                        "type": "LONG_TEXT",
+                                        "required": false,
+                                        "description": "Type: string",
+                                        "displayName": "job_title"
+                                      },
+                                      "raw_email": {
+                                        "type": "SHORT_TEXT",
+                                        "required": false,
+                                        "description": "Type: string - Enter email address",
+                                        "displayName": "raw_email"
+                                      },
+                                      "created_at": {
+                                        "type": "LONG_TEXT",
+                                        "required": false,
+                                        "description": "Type: string",
+                                        "displayName": "created_at"
+                                      },
+                                      "experience": {
+                                        "type": "LONG_TEXT",
+                                        "required": false,
+                                        "description": "Type: string",
+                                        "displayName": "experience"
+                                      },
+                                      "role_overview": {
+                                        "type": "LONG_TEXT",
+                                        "required": false,
+                                        "description": "Type: string",
+                                        "displayName": "role_overview"
+                                      },
+                                      "gmail_thread_id": {
+                                        "type": "SHORT_TEXT",
+                                        "required": false,
+                                        "description": "Type: string - Leave empty for auto-generation",
+                                        "displayName": "gmail_thread_id (auto-generated)"
+                                      },
+                                      "gmail_message_id": {
+                                        "type": "SHORT_TEXT",
+                                        "required": false,
+                                        "description": "Type: string - Leave empty for auto-generation",
+                                        "displayName": "gmail_message_id (auto-generated)"
+                                      }
+                                    }
+                                  },
+                                  "return_row": {
+                                    "type": "MANUAL"
+                                  },
+                                  "table_name": {
+                                    "type": "MANUAL"
+                                  }
+                                },
+                                "errorHandlingOptions": {
+                                  "retryOnFailure": {
+                                    "value": false
+                                  },
+                                  "continueOnFailure": {
+                                    "value": true
+                                  }
+                                }
+                              },
+                              "nextAction": {
+                                "name": "step_10",
+                                "skip": false,
+                                "type": "PIECE",
+                                "valid": true,
+                                "settings": {
+                                  "input": {
+                                    "unit": "seconds",
+                                    "delayFor": "10"
+                                  },
+                                  "pieceName": "@activepieces/piece-delay",
+                                  "actionName": "delayFor",
+                                  "sampleData": {},
+                                  "pieceVersion": "0.3.26",
+                                  "propertySettings": {
+                                    "unit": {
+                                      "type": "MANUAL"
+                                    },
+                                    "delayFor": {
+                                      "type": "MANUAL"
+                                    },
+                                    "markdown": {
+                                      "type": "MANUAL"
+                                    }
+                                  },
+                                  "errorHandlingOptions": {
+                                    "retryOnFailure": {
+                                      "value": false
+                                    },
+                                    "continueOnFailure": {
+                                      "value": false
+                                    }
+                                  }
+                                },
+                                "nextAction": {
+                                  "name": "step_12",
+                                  "skip": false,
+                                  "type": "PIECE",
+                                  "valid": true,
+                                  "settings": {
+                                    "input": {
+                                      "url": {
+                                        "url": "https://knxgecrwckiaohzpykpp.supabase.co/rest/v1/rpc/cleanup_duplicates"
+                                      },
+                                      "auth": "{{connections['ucTnKLur23DiRoyzJeh2g']}}",
+                                      "body": {
+                                        "data": {}
+                                      },
+                                      "method": "POST",
+                                      "headers": {
+                                        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtueGdlY3J3Y2tpYW9oenB5a3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxMjg2ODEsImV4cCI6MjA5MTcwNDY4MX0.JjOK3W-UW_AqeLpSDWCMLRZSpzRxaQKrFL37y07Qbb4",
+                                        "Content-Type": "application/json",
+                                        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtueGdlY3J3Y2tpYW9oenB5a3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxMjg2ODEsImV4cCI6MjA5MTcwNDY4MX0.JjOK3W-UW_AqeLpSDWCMLRZSpzRxaQKrFL37y07Qbb4"
+                                      },
+                                      "failsafe": false,
+                                      "body_type": "json",
+                                      "queryParams": {},
+                                      "followRedirects": false,
+                                      "response_is_binary": false
+                                    },
+                                    "pieceName": "@activepieces/piece-supabase",
+                                    "actionName": "custom_api_call",
+                                    "pieceVersion": "0.1.4",
+                                    "propertySettings": {
+                                      "url": {
+                                        "type": "MANUAL",
+                                        "schema": {
+                                          "url": {
+                                            "type": "SHORT_TEXT",
+                                            "required": true,
+                                            "description": "You can either use the full URL or the relative path to the base URL\ni.e https://knxgecrwckiaohzpykpp.supabase.co/resource or /resource",
+                                            "displayName": "URL",
+                                            "defaultValue": "https://knxgecrwckiaohzpykpp.supabase.co"
+                                          }
+                                        }
+                                      },
+                                      "body": {
+                                        "type": "MANUAL",
+                                        "schema": {
+                                          "data": {
+                                            "type": "JSON",
+                                            "required": true,
+                                            "displayName": "JSON Body"
+                                          }
+                                        }
+                                      },
+                                      "method": {
+                                        "type": "MANUAL"
+                                      },
+                                      "headers": {
+                                        "type": "MANUAL"
+                                      },
+                                      "timeout": {
+                                        "type": "MANUAL"
+                                      },
+                                      "failsafe": {
+                                        "type": "MANUAL"
+                                      },
+                                      "body_type": {
+                                        "type": "MANUAL"
+                                      },
+                                      "queryParams": {
+                                        "type": "MANUAL"
+                                      },
+                                      "followRedirects": {
+                                        "type": "MANUAL"
+                                      },
+                                      "response_is_binary": {
+                                        "type": "MANUAL"
+                                      }
+                                    },
+                                    "errorHandlingOptions": {
+                                      "retryOnFailure": {
+                                        "value": false
+                                      },
+                                      "continueOnFailure": {
+                                        "value": false
+                                      }
+                                    }
+                                  },
+                                  "displayName": "Custom API Call Copy",
+                                  "lastUpdatedDate": "2026-05-14T19:22:55.281Z"
+                                },
+                                "displayName": "Delay For",
+                                "lastUpdatedDate": "2026-05-14T19:22:55.280Z"
+                              },
+                              "displayName": "Create Row",
+                              "lastUpdatedDate": "2026-05-14T19:22:55.279Z"
+                            },
+                            "displayName": "Prepare DB Row",
+                            "lastUpdatedDate": "2026-05-14T19:22:55.278Z"
+                          },
+                          "displayName": "Normalize AI Output",
+                          "lastUpdatedDate": "2026-05-14T19:22:55.278Z"
+                        },
+                        "displayName": "Ask AI",
+                        "lastUpdatedDate": "2026-05-14T19:22:55.277Z"
+                      },
+                      "displayName": "Clean Email",
+                      "lastUpdatedDate": "2026-05-14T19:22:55.277Z"
+                    }
+                  ],
+                  "settings": {
+                    "branches": [
+                      {
+                        "branchName": "Branch 1",
+                        "branchType": "CONDITION",
+                        "conditions": [
+                          [
+                            {
+                              "operator": "NUMBER_IS_GREATER_THAN",
+                              "firstValue": "{{step_8['count']}}",
+                              "secondValue": "0"
+                            }
+                          ]
+                        ]
+                      },
+                      {
+                        "branchName": "Otherwise",
+                        "branchType": "FALLBACK"
+                      }
+                    ],
+                    "sampleData": {},
+                    "executionType": "EXECUTE_FIRST_MATCH"
+                  },
+                  "displayName": "Router",
+                  "lastUpdatedDate": "2026-05-14T19:22:55.276Z"
+                },
+                "displayName": "Search Rows",
+                "lastUpdatedDate": "2026-05-14T19:22:55.276Z"
+              },
+              "displayName": "Get Email",
+              "lastUpdatedDate": "2026-05-14T19:22:55.276Z"
+            },
+            "lastUpdatedDate": "2026-05-14T19:22:55.275Z"
+          },
+          "displayName": "Find Email",
+          "lastUpdatedDate": "2026-05-14T19:22:55.275Z"
+        },
+        "lastUpdatedDate": "2026-05-14T19:22:58.183Z",
+        "type": "PIECE_TRIGGER",
+        "settings": {
+          "propertySettings": {
+            "authType": {
+              "type": "MANUAL"
+            },
+            "authFields": {
+              "type": "MANUAL",
+              "schema": {}
+            },
+            "liveMarkdown": {
+              "type": "MANUAL"
+            },
+            "syncMarkdown": {
+              "type": "MANUAL"
+            },
+            "testMarkdown": {
+              "type": "MANUAL"
+            }
+          },
+          "pieceName": "@activepieces/piece-webhook",
+          "pieceVersion": "0.1.33",
+          "triggerName": "catch_webhook",
+          "input": {
+            "authType": "none",
+            "authFields": {}
+          }
+        }
+      },
+      "valid": true,
+      "schemaVersion": "20",
+      "notes": []
+    }
+  ],
+  "status": "PUBLISHED"
+}

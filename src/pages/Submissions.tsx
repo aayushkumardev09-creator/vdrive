@@ -107,8 +107,8 @@ ${notes}
 Could we schedule a review call or proceed with technical rounds?
 
 Best regards,
-V Drive Recruitment Operations
-www.vdrive.ai`;
+ vdrive
+www.vdrive`;
   };
 
   useEffect(() => {
@@ -227,7 +227,7 @@ www.vdrive.ai`;
             <ArrowLeft className="w-5 h-5 text-slate-600" />
           </button>
           <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">V Drive Submission Terminal</h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">vdrive Submission Terminal</h1>
             <p className="text-slate-500 text-sm font-medium">Finalize candidate submission to the hiring manager.</p>
           </div>
         </div>

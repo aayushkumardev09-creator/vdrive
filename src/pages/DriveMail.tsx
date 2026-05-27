@@ -29,7 +29,7 @@ export default function DriveMail() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          source: 'V Drive Web App',
+          source: 'vdrive',
           timestamp: new Date().toISOString(),
           action: 'FETCH_JOBS'
         }),

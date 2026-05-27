@@ -1,6 +1,6 @@
 import React from 'react';
-const Suspense = (React as any).Suspense;
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+
 import { DashboardLayout } from './components/layout/DashboardLayout';
 
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -15,8 +15,9 @@ const Settings = React.lazy(() => import('./pages/Settings'));
 export default function App() {
   return (
     <Router>
-      <Suspense fallback={null}>
+      <React.Suspense fallback={null}>
         <Routes>
+
           <Route path="/" element={<DashboardLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="jobs" element={<Jobs />} />
@@ -28,7 +29,8 @@ export default function App() {
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>
-      </Suspense>
+      </React.Suspense>
+
     </Router>
   );
 }
