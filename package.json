@@ -1,8 +1,19 @@
 {
-  "name": "react-example",
-  "private": true,
-  "version": "0.0.0",
+  "name": "vdrive",
+  "description": "An End-to-End Recruitment Operations Dashboard with AI-Powered Matching",
+  "version": "1.0.0",
   "type": "module",
+  "private": true,
+  "author": "aayushkumardev09-creator",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aayushkumardev09-creator/vdrive"
+  },
+  "homepage": "https://github.com/aayushkumardev09-creator/vdrive#readme",
+  "bugs": {
+    "url": "https://github.com/aayushkumardev09-creator/vdrive/issues"
+  },
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
