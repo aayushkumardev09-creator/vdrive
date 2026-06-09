@@ -56,6 +56,10 @@ export default function Submissions() {
   // State management
   const [candidates] = useState<Candidate[]>(passedCandidates || []);
   const [job] = useState<Job | null>(passedJob || null);
+  const [emailSettings, setEmailSettings] = useState({
+    header: "Hi Hiring Team,\n\nI've curated a shortlist of exceptional candidates for the {job_title} position.",
+    footer: "Could we schedule a review call or proceed with technical rounds?\n\nBest regards,\nvdrive\nwww.vdrive"
+  });
   const [clientEmail, setClientEmail] = useState('hiring.manager@techcorp.com');
   const [recruiterNotes, setRecruiterNotes] = useState('These candidates were selected specifically for their strong alignment with your project requirements and technical stack.');
   
@@ -82,21 +86,40 @@ export default function Submissions() {
     }
   }, [job, isReply]);
 
+  useEffect(() => {
+    const loadEmailSettings = async () => {
+      try {
+        const { data } = await supabase.from('settings').select('emailSettings').single();
+        if (data?.emailSettings) {
+          setEmailSettings(data.emailSettings);
+        } else {
+          const local = localStorage.getItem('vdrive_settings');
+          if (local) {
+            const parsed = JSON.parse(local);
+            if (parsed?.emailSettings) {
+              setEmailSettings(parsed.emailSettings);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load email settings, using defaults');
+      }
+    };
+    loadEmailSettings();
+  }, []);
+
   // Generate dynamic email body
   const generateTemplate = (notes: string) => {
     if (!job) return '';
 
     const candidateSections = candidates.map(c => 
-      `• ${c.name} (${c.experience} Exp)\n  Skills: ${c.skills}\n  Location: ${c.location}\n  V Drive AI Score: ${c.score}%`
+      `• ${c.name} (${c.experience} Exp)\n  Skills: ${c.skills}\n  Location: ${c.location}`
     ).join('\n\n');
 
-    const intro = isReply 
-      ? `Following up on our thread regarding the ${job.job_title} position.`
-      : `I've curated a shortlist of exceptional candidates for the ${job.job_title} position.`;
+    const header = emailSettings.header.replace('{job_title}', job.job_title);
+    const footer = emailSettings.footer;
 
-    return `Hi Hiring Team,
-    
-${intro}
+    return `${header}
 
 Selected Candidates:
 ${candidateSections}
@@ -104,16 +127,12 @@ ${candidateSections}
 Recruiter Notes:
 ${notes}
 
-Could we schedule a review call or proceed with technical rounds?
-
-Best regards,
- vdrive
-www.vdrive`;
+${footer}`;
   };
 
   useEffect(() => {
     setEmailBody(generateTemplate(recruiterNotes));
-  }, [candidates, job, recruiterNotes, isReply]);
+  }, [candidates, job, recruiterNotes, isReply, emailSettings]);
 
   const enhanceWithAI = async () => {
     if (!job || candidates.length === 0) return;
@@ -163,7 +182,7 @@ www.vdrive`;
       });
 
       // Call Submission Webhook
-      const webhookUrl = import.meta.env.VITE_SUBMISSION_WEBHOOK_URL;
+      const webhookUrl = '/api/webhooks/submission';
       if (webhookUrl) {
         const response = await fetch(webhookUrl, {
           method: 'POST',
@@ -189,6 +208,31 @@ www.vdrive`;
       // Wait a bit to simulate processing
       await new Promise(resolve => setTimeout(resolve, 1500));
       
+      // Update Supabase for sent tracking
+      const candidateIds = candidates.map(c => c.id);
+      const { data: currentCandidates } = await supabase
+        .from('candidates')
+        .select('id, sent_job_ids')
+        .in('id', candidateIds);
+        
+      if (currentCandidates) {
+        for (const c of currentCandidates) {
+          const currentIds = Array.isArray(c.sent_job_ids) ? c.sent_job_ids : [];
+          if (!currentIds.includes(job.id)) {
+            const nextIds = [...currentIds, job.id];
+            await supabase
+              .from('candidates')
+              .update({ status: 'Sent', _info: 'sent', sent_job_ids: nextIds })
+              .eq('id', c.id);
+          } else {
+            await supabase
+              .from('candidates')
+              .update({ status: 'Sent', _info: 'sent' })
+              .eq('id', c.id);
+          }
+        }
+      }
+      
       setIsSent(true);
     } catch (error) {
       console.error('Failed to finalize submission:', error);
@@ -204,11 +248,11 @@ www.vdrive`;
         <div className="p-6 bg-slate-50 rounded-full border border-slate-200">
           <Sparkles className="w-12 h-12 text-slate-300" />
         </div>
-        <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">No Selection Data</h2>
+        <h2 className="text-2xl font-black text-slate-900 tracking-tighter">No Selection Data</h2>
         <p className="text-slate-500 max-w-sm">Please select a job and candidates from the Matching terminal to begin the submission process.</p>
         <button 
           onClick={() => navigate('/smart-match')}
-          className="mt-4 px-6 py-3 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-indigo-100"
+          className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-2xl text-xs font-black font-medium tracking-tight shadow-xl shadow-blue-100"
         >
           Return to Matching
         </button>
@@ -241,7 +285,7 @@ www.vdrive`;
             onClick={handleSend}
             className={cn(
               "flex items-center gap-2 px-6 py-2 rounded-xl text-sm font-bold shadow-lg transition-all active:scale-95",
-              isSent ? "bg-emerald-500 text-white shadow-emerald-100" : "bg-indigo-600 text-white shadow-indigo-100 hover:bg-indigo-700 disabled:opacity-50"
+              isSent ? "bg-emerald-500 text-white shadow-emerald-100" : "bg-blue-600 text-white shadow-blue-100 hover:bg-blue-700 disabled:opacity-50"
             )}
           >
             {isSending ? (
@@ -256,26 +300,26 @@ www.vdrive`;
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Side: Job Card and Candidates List */}
         <aside className="lg:col-span-4 space-y-6">
           {/* Job Card */}
-          <div className="bg-indigo-900 rounded-3xl p-6 text-white shadow-xl shadow-indigo-100 relative overflow-hidden group">
+          <div className="bg-blue-900 rounded-xl p-6 text-white shadow-xl shadow-blue-100 relative overflow-hidden group">
             <Briefcase className="absolute -right-4 -bottom-4 w-24 h-24 text-white opacity-5" />
             <div className="relative z-10 space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">Target Position</span>
+                <span className="text-[10px] font-black text-blue-300 font-medium tracking-tight">Target Position</span>
                 <span className="px-2 py-0.5 bg-white/10 rounded text-[9px] font-bold uppercase">Active</span>
               </div>
               <div>
-                <h3 className="text-xl font-black uppercase tracking-tight leading-tight">{job.job_title}</h3>
+                <h3 className="text-xl font-black tracking-tight leading-tight">{job.job_title}</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="flex items-center gap-1 text-[10px] font-bold text-indigo-300 uppercase tracking-widest">
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-blue-300 font-medium tracking-tight">
                     <MapPin className="w-3 h-3" />
                     {job.location}
                   </span>
-                  <span className="w-1 h-1 rounded-full bg-indigo-500" />
-                  <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest">
+                  <span className="w-1 h-1 rounded-full bg-blue-500" />
+                  <span className="text-[10px] font-bold text-blue-300 font-medium tracking-tight">
                     {job.experience}
                   </span>
                 </div>
@@ -285,22 +329,22 @@ www.vdrive`;
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <h3 className="text-[10px] font-black text-slate-400 font-medium tracking-tight flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 Shortlisted Candidates
               </h3>
-              <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{candidates.length}</span>
+              <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{candidates.length}</span>
             </div>
             <div className="divide-y divide-slate-100">
               {candidates.map((c) => (
-                <div key={c.id} className="p-4 hover:bg-indigo-50/30 transition-colors group">
+                <div key={c.id} className="p-4 hover:bg-blue-50/30 transition-colors group">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center font-bold text-slate-500 border border-white shadow-sm ring-1 ring-slate-100 uppercase transition-transform group-hover:scale-105 group-hover:bg-indigo-600 group-hover:text-white">
+                    <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center font-bold text-slate-500 border border-white shadow-sm ring-1 ring-slate-100 uppercase transition-transform group-hover:scale-105 group-hover:bg-blue-600 group-hover:text-white">
                       {c.name.split(' ').map(n => n[0]).join('')}
                     </div>
                     <div>
                       <p className="text-sm font-bold text-slate-900 leading-none mb-1">{c.name}</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{c.experience} Exp</p>
+                      <p className="text-[10px] text-slate-400 font-bold tracking-tighter">{c.experience} Exp</p>
                     </div>
                     <div className="ml-auto text-right">
                        <span className={cn(
@@ -329,7 +373,7 @@ www.vdrive`;
 
         {/* Right Side: Email Composer */}
         <div className="lg:col-span-8 flex flex-col gap-6">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
             <div className="p-6 border-b border-slate-100 bg-slate-50/50 space-y-4">
                <div className="flex items-center gap-4 bg-white/80 p-1.5 rounded-2xl border border-slate-100 mb-2">
                   <div className="px-3 py-1.5 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center gap-2">
@@ -337,7 +381,7 @@ www.vdrive`;
                       "w-2 h-2 rounded-full",
                       isReply ? "bg-amber-500 animate-pulse" : "bg-emerald-500"
                     )} />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    <span className="text-[10px] font-black text-slate-400 font-medium tracking-tight">
                       {isReply ? "Reply Mode" : "New Thread"}
                     </span>
                   </div>
@@ -348,52 +392,52 @@ www.vdrive`;
                </div>
 
                <div className="flex items-center gap-4">
-                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest w-12 shrink-0">To</label>
+                 <label className="text-[10px] font-black text-slate-400 font-medium tracking-tight w-12 shrink-0">To</label>
                  <input 
                    type="email" 
                    value={clientEmail}
                    onChange={(e) => setClientEmail(e.target.value)}
-                   className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-900 focus:ring-4 focus:ring-indigo-100 transition-all outline-none"
+                   className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-900 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
                  />
                </div>
                <div className="flex items-center gap-4">
-                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest w-12 shrink-0">Subject</label>
+                 <label className="text-[10px] font-black text-slate-400 font-medium tracking-tight w-12 shrink-0">Subject</label>
                  <input 
                    type="text" 
                    value={subject}
                    onChange={(e) => setSubject(e.target.value)}
-                   className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-900 focus:ring-4 focus:ring-indigo-100 transition-all outline-none"
+                   className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-900 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
                  />
                </div>
             </div>
 
             <div className="flex-1 flex flex-col min-h-[400px] relative">
-              <div className="p-6 text-[10px] font-black text-slate-300 uppercase tracking-widest border-b border-slate-50 flex items-center justify-between">
+              <div className="p-6 text-[10px] font-black text-slate-300 font-medium tracking-tight border-b border-slate-50 flex items-center justify-between">
                 <span>Message Body (Editable)</span>
                 <div className="flex gap-4">
-                  <button className="hover:text-indigo-600">B</button>
-                  <button className="hover:text-indigo-600 italic">I</button>
-                  <button className="hover:text-indigo-600 underline">U</button>
+                  <button className="hover:text-blue-600">B</button>
+                  <button className="hover:text-blue-600 italic">I</button>
+                  <button className="hover:text-blue-600 underline">U</button>
                 </div>
               </div>
               <textarea 
                 value={emailBody}
                 onChange={(e) => setEmailBody(e.target.value)}
-                className="flex-1 p-8 text-sm text-slate-700 leading-relaxed font-medium outline-none resize-none bg-slate-50/30 selection:bg-indigo-100 selection:text-indigo-900"
+                className="flex-1 p-6 text-sm text-slate-700 leading-relaxed font-medium outline-none resize-none bg-slate-50/30 selection:bg-blue-100 selection:text-blue-900"
                 placeholder="Type your submission message..."
               />
             </div>
             
             <div className="p-6 border-t border-slate-100 bg-white">
                <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 italic relative group">
-                  <FileText className="w-5 h-5 text-indigo-500 absolute -left-2.5 top-4 bg-white rounded-full p-1 border border-slate-100 shadow-sm group-hover:scale-110 transition-transform" />
+                  <FileText className="w-5 h-5 text-blue-500 absolute -left-2.5 top-4 bg-white rounded-full p-1 border border-slate-100 shadow-sm group-hover:scale-110 transition-transform" />
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1 italic">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Internal Recruiter Notes</p>
+                      <p className="text-[10px] font-black text-slate-400 font-medium tracking-tight italic">Internal Recruiter Notes</p>
                       <button 
                         onClick={enhanceWithAI}
                         disabled={isEnhancing}
-                        className="flex items-center gap-1.5 text-[9px] font-black text-indigo-600 uppercase tracking-widest hover:text-indigo-700 transition-colors bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 disabled:opacity-50"
+                        className="flex items-center gap-1.5 text-[9px] font-black text-blue-600 font-medium tracking-tight hover:text-blue-700 transition-colors bg-blue-50 px-2 py-1 rounded-md border border-blue-100 disabled:opacity-50"
                       >
                         <Sparkles className={cn("w-3 h-3", isEnhancing && "animate-pulse")} />
                         {isEnhancing ? "Enhancing..." : "Suggest with AI"}

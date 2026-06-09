@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 export const DashboardLayout = () => {
   return (
-    <div className="flex bg-slate-50 min-h-screen font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="flex bg-slate-50 h-screen overflow-hidden font-sans selection:bg-indigo-100 selection:text-indigo-900">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <TopNav />
