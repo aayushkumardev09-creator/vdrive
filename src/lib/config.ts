@@ -1,8 +1,6 @@
 export type RequiredEnvKey =
   | 'VITE_SUPABASE_URL'
   | 'VITE_SUPABASE_ANON_KEY'
-  | 'VITE_DRIVEMAIL_SYNC_WEBHOOK_URL'
-  | 'VITE_SUBMISSION_WEBHOOK_URL'
   | 'VITE_SENTRY_DSN';
 
 export type MissingEnv = {
@@ -13,8 +11,6 @@ export type MissingEnv = {
 const REQUIRED_KEYS: RequiredEnvKey[] = [
   'VITE_SUPABASE_URL',
   'VITE_SUPABASE_ANON_KEY',
-  'VITE_DRIVEMAIL_SYNC_WEBHOOK_URL',
-  'VITE_SUBMISSION_WEBHOOK_URL',
 ];
 
 function envValue(key: RequiredEnvKey): string | undefined {

@@ -116,7 +116,7 @@ export default function Dashboard() {
     return (
       <div className="h-[80vh] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
           <p className="text-slate-500 font-medium animate-pulse">Synchronizing performance data...</p>
         </div>
       </div>
@@ -140,7 +140,7 @@ export default function Dashboard() {
           </button>
           <button 
             onClick={() => navigate('/jobs')}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold shadow-md shadow-indigo-100 hover:bg-indigo-700 transition-all hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2 text-sm"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold shadow-md shadow-blue-100 hover:bg-blue-700 transition-all hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2 text-sm"
           >
             <Plus className="w-4 h-4" />
             Create New Job
@@ -151,7 +151,7 @@ export default function Dashboard() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'Total Candidates', value: stats.totalCandidates.toLocaleString(), icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+          { label: 'Total Candidates', value: stats.totalCandidates.toLocaleString(), icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: 'Pending Jobs', value: stats.activeJobs.toString(), icon: Briefcase, color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: 'Sent Submissions', value: stats.sentSubmissions.toString(), icon: Send, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           { label: 'Total Jobs', value: stats.totalJobs.toString(), icon: Mail, color: 'text-slate-600', bg: 'bg-slate-50' },
@@ -169,7 +169,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Jobs */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
@@ -179,7 +179,7 @@ export default function Dashboard() {
             </h3>
             <button 
               onClick={() => navigate('/jobs')}
-              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-wider"
+              className="text-xs font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider"
             >
               All Jobs
             </button>
@@ -187,35 +187,32 @@ export default function Dashboard() {
           <div className="space-y-3">
             {recentJobs.length > 0 ? (
               recentJobs.map((job) => (
-                <div key={job.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-indigo-200 transition-colors group flex items-center justify-between">
+                <div key={job.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-blue-200 transition-colors group flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center border border-slate-100 font-bold text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                      {job.job_title.charAt(0)}
+                    <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center border border-slate-100 font-bold text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                      {job.job_title ? job.job_title.charAt(0) : '?'}
                     </div>
                     <div>
-                      <h4 className="font-bold text-slate-900 text-sm leading-none mb-1">{job.job_title}</h4>
-                      <p className="text-xs text-slate-400 font-medium">{job.location}</p>
+                      <h4 className="font-bold text-slate-900 text-sm leading-none mb-1">{job.job_title || 'Untitled Position'}</h4>
+                      <p className="text-xs text-slate-400 font-medium">{job.location || 'N/A'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-6">
                     <div className="text-right">
                       <span className={cn(
-                        "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest",
-                        job._info === 'sent' ? "bg-indigo-50 text-indigo-700" :
+                        "px-2 py-0.5 rounded text-[10px] font-bold font-medium tracking-tight",
+                        job._info === 'sent' ? "bg-blue-50 text-blue-700" :
                         job.status === 'active' ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
                       )}>
                         {job._info === 'sent' ? 'Sent' : job.status}
                       </span>
-                      <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">{formatDate(job.created_at)}</p>
+                      <p className="text-[10px] text-slate-400 font-bold mt-1 tracking-tighter">{formatDate(job.created_at)}</p>
                     </div>
-                    <button className="p-1 hover:bg-slate-50 rounded text-slate-300 hover:text-slate-600">
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+              <div className="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
                 <p className="text-sm text-slate-400 font-medium">No recent jobs found</p>
               </div>
             )}
@@ -231,7 +228,7 @@ export default function Dashboard() {
             </h3>
             <button 
               onClick={() => navigate('/candidates')}
-              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-wider"
+              className="text-xs font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider"
             >
               View Pool
             </button>
@@ -251,14 +248,14 @@ export default function Dashboard() {
                     <tr key={candidate.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
-                          <div className={cn("w-2 h-2 rounded-full", candidate._info === 'sent' ? "bg-indigo-500" : "bg-emerald-500")} />
+                          <div className={cn("w-2 h-2 rounded-full", candidate._info === 'sent' ? "bg-blue-500" : "bg-emerald-500")} />
                           <span className="text-xs font-bold text-slate-900">{candidate.name}</span>
                         </div>
                       </td>
                       <td className="px-5 py-4">
                         <span className={cn(
-                          "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest",
-                          candidate._info === 'sent' ? "bg-indigo-50 text-indigo-600" : "bg-emerald-50 text-emerald-600"
+                          "px-2 py-0.5 rounded text-[10px] font-bold font-medium tracking-tight",
+                          candidate._info === 'sent' ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"
                         )}>
                           {candidate._info === 'sent' ? 'Sent' : 'New'}
                         </span>
@@ -292,14 +289,14 @@ export default function Dashboard() {
           </h3>
           <button 
             onClick={() => navigate('/match')}
-            className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-wider"
+            className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider"
           >
             Review Smart Match
             <ArrowRight className="w-3 h-3" />
           </button>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-auto flex-1">
             <table className="w-full text-left">
               <thead className="bg-slate-50/50 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                 <tr>
@@ -315,20 +312,20 @@ export default function Dashboard() {
                     <tr key={job.id} onClick={() => navigate('/match')} className="hover:bg-slate-50 transition-colors hover:cursor-pointer">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center border border-indigo-100 font-bold text-[10px] text-indigo-600">
-                            {job.job_title.charAt(0)}
+                          <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center border border-blue-100 font-bold text-[10px] text-blue-600">
+                            {job.job_title ? job.job_title.charAt(0) : '?'}
                           </div>
-                          <span className="text-xs font-bold text-slate-900">{job.job_title}</span>
+                          <span className="text-xs font-bold text-slate-900">{job.job_title || 'Untitled Position'}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-xs font-semibold text-slate-600">{job.client_email || 'No email'}</span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-xs font-medium text-slate-400">{job.location}</span>
+                        <span className="text-xs font-medium text-slate-400">{job.location || 'N/A'}</span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded uppercase tracking-widest border border-indigo-100">
+                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded font-medium tracking-tight border border-blue-100">
                           {formatDate(job.created_at)}
                         </span>
                       </td>

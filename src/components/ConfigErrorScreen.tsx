@@ -36,7 +36,7 @@ export function ConfigErrorScreen(props: { missingKeys: string[] }) {
         <div className="mt-6 rounded-2xl bg-slate-50 border border-slate-100 p-4">
           <p className="text-[12px] text-slate-600 font-bold uppercase tracking-widest">Required variables</p>
           <p className="text-sm text-slate-700 mt-2">
-            VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_DRIVEMAIL_SYNC_WEBHOOK_URL, VITE_SUBMISSION_WEBHOOK_URL
+            VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
           </p>
         </div>
       </div>

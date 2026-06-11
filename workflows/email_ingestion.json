@@ -501,7 +501,7 @@
                                   "settings": {
                                     "input": {
                                       "url": {
-                                        "url": "/rest/v1/rpc/cleanup_duplicates"
+                                        "url": "https://knxgecrwckiaohzpykpp.supabase.co/rest/v1/rpc/cleanup_duplicates"
                                       },
                                       "auth": "{{connections['ucTnKLur23DiRoyzJeh2g']}}",
                                       "body": {
@@ -509,7 +509,9 @@
                                       },
                                       "method": "POST",
                                       "headers": {
-                                        "Content-Type": "application/json"
+                                        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtueGdlY3J3Y2tpYW9oenB5a3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxMjg2ODEsImV4cCI6MjA5MTcwNDY4MX0.JjOK3W-UW_AqeLpSDWCMLRZSpzRxaQKrFL37y07Qbb4",
+                                        "Content-Type": "application/json",
+                                        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtueGdlY3J3Y2tpYW9oenB5a3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxMjg2ODEsImV4cCI6MjA5MTcwNDY4MX0.JjOK3W-UW_AqeLpSDWCMLRZSpzRxaQKrFL37y07Qbb4"
                                       },
                                       "failsafe": false,
                                       "body_type": "json",
@@ -527,9 +529,9 @@
                                           "url": {
                                             "type": "SHORT_TEXT",
                                             "required": true,
-                                            "description": "Use a relative path (e.g. /rest/v1/rpc/cleanup_duplicates) or full URL. Base URL comes from your Supabase connection.",
+                                            "description": "You can either use the full URL or the relative path to the base URL\ni.e https://knxgecrwckiaohzpykpp.supabase.co/resource or /resource",
                                             "displayName": "URL",
-                                            "defaultValue": "https://your-project.supabase.co"
+                                            "defaultValue": "https://knxgecrwckiaohzpykpp.supabase.co"
                                           }
                                         }
                                       },

@@ -25,6 +25,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/src/lib/supabase';
 
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
 type UploadStep = 'upload' | 'mapping' | 'preview';
 
@@ -79,29 +80,139 @@ export default function UploadCandidates() {
     Papa.parse(fileToParse, {
       header: true,
       skipEmptyLines: true,
-      complete: (results) => {
-        if (results.meta.fields) {
+      complete: async (results) => {
+        if (results.meta.fields && results.data.length > 0) {
           setCsvHeaders(results.meta.fields);
           setRawParsedData(results.data);
           
-          // Initial mapping guess
-          const initialMappings: Record<string, string> = {};
-          results.meta.fields.forEach(header => {
-            const lowHeader = header.toLowerCase();
-            if (lowHeader === 'id') initialMappings[header] = 'id';
-            else if (lowHeader.includes('name')) initialMappings[header] = 'name';
-            else if (lowHeader.includes('email')) initialMappings[header] = 'email';
-            else if (lowHeader.includes('skill') || lowHeader.includes('stack')) initialMappings[header] = 'skills';
-            else if (lowHeader.includes('exp')) initialMappings[header] = 'experience';
-            else if (lowHeader.includes('loc') || lowHeader.includes('city')) initialMappings[header] = 'location';
-            else if (lowHeader.includes('resume')) initialMappings[header] = 'resume';
-            else if (lowHeader.includes('created')) initialMappings[header] = 'created_at';
-            else initialMappings[header] = 'ignore';
-          });
-          setMappings(initialMappings);
+          setIsUploading(true);
+          setUploadStatus({ type: 'success', message: 'Analyzing CSV structure with AI...' });
+
+          try {
+            const response = await fetch('/api/ai/map-csv', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                headers: results.meta.fields, 
+                sampleRow: results.data[0] 
+              })
+            });
+
+            if (!response.ok) throw new Error('AI Mapping failed');
+            
+            const data = await response.json();
+            setMappings(data.mapping);
+            
+            processMappings(results.data, data.mapping);
+          } catch (error: any) {
+             console.error("AI Mapping error:", error);
+             setUploadStatus({ type: 'error', message: 'AI Mapping failed. Please map manually.' });
+             setCurrentStep('mapping');
+          } finally {
+             setIsUploading(false);
+             setTimeout(() => setUploadStatus(null), 2000);
+          }
         }
       }
     });
+  };
+
+  const parseExcel = (fileToParse: File) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" }) as any[];
+        
+        if (json.length > 0) {
+          const headers = Object.keys(json[0]);
+          setCsvHeaders(headers);
+          setRawParsedData(json);
+          
+          setIsUploading(true);
+          setUploadStatus({ type: 'success', message: 'Analyzing Excel structure with AI...' });
+
+          const response = await fetch('/api/ai/map-csv', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              headers, 
+              sampleRow: json[0] 
+            })
+          });
+
+          if (!response.ok) throw new Error('AI Mapping failed');
+          
+          const responseData = await response.json();
+          setMappings(responseData.mapping);
+          
+          processMappings(json, responseData.mapping);
+        }
+      } catch (error: any) {
+         console.error("AI Mapping error:", error);
+         setUploadStatus({ type: 'error', message: 'AI Mapping failed. Please map manually.' });
+         setCurrentStep('mapping');
+      } finally {
+         setIsUploading(false);
+         setTimeout(() => setUploadStatus(null), 2000);
+      }
+    };
+    reader.readAsArrayBuffer(fileToParse);
+  };
+
+  const parseImage = (fileToParse: File) => {
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result as string;
+      setIsUploading(true);
+      setUploadStatus({ type: 'success', message: 'Extracting candidates from image with AI...' });
+
+      try {
+        const response = await fetch('/api/ai/parse-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64Image: base64String })
+        });
+
+        if (!response.ok) throw new Error('AI Image Parsing failed');
+        
+        const data = await response.json();
+        
+        const processedRows: ParsedRow[] = data.candidates.map((cand: any) => {
+          const errors = [];
+          if (!cand.name) errors.push('Missing Name');
+          if (!cand.email) errors.push('Missing Email');
+          
+          return {
+            id: crypto.randomUUID(),
+            name: cand.name || '',
+            email: cand.email || '',
+            skills: cand.skills || '',
+            experience: cand.experience || '',
+            location: cand.location || '',
+            resume: cand.resume || null,
+            _info: cand._info || 'Extracted from image',
+            created_at: new Date().toISOString(),
+            status: errors.length > 0 ? 'invalid' : 'valid',
+            errors
+          };
+        });
+
+        setRows(processedRows);
+        setCurrentStep('preview');
+
+      } catch (error: any) {
+         console.error("AI Image Parsing error:", error);
+         setUploadStatus({ type: 'error', message: 'Failed to extract data from image.' });
+      } finally {
+         setIsUploading(false);
+         setTimeout(() => setUploadStatus(null), 2000);
+      }
+    };
+    reader.readAsDataURL(fileToParse);
   };
 
   const onDragOver = useCallback((e: React.DragEvent) => {
@@ -115,10 +226,20 @@ export default function UploadCandidates() {
     e.preventDefault();
     setIsDragging(false);
     const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && (droppedFile.name.endsWith('.csv') || droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.xls'))) {
-      setFile(droppedFile);
-      if (droppedFile.name.endsWith('.csv')) {
-        parseFile(droppedFile);
+    if (droppedFile) {
+      const isCsv = droppedFile.name.endsWith('.csv');
+      const isExcel = droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.xls');
+      const isImage = droppedFile.type.startsWith('image/');
+
+      if (isCsv || isExcel || isImage) {
+        setFile(droppedFile);
+        if (isCsv) {
+          parseFile(droppedFile);
+        } else if (isExcel) {
+          parseExcel(droppedFile);
+        } else if (isImage) {
+          parseImage(droppedFile);
+        }
       }
     }
   }, []);
@@ -127,23 +248,32 @@ export default function UploadCandidates() {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
-      if (selectedFile.name.endsWith('.csv')) {
+      const isCsv = selectedFile.name.endsWith('.csv');
+      const isExcel = selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls');
+      const isImage = selectedFile.type.startsWith('image/');
+      
+      if (isCsv) {
         parseFile(selectedFile);
+      } else if (isExcel) {
+        parseExcel(selectedFile);
+      } else if (isImage) {
+        parseImage(selectedFile);
       }
     }
   };
 
-  const processMappings = () => {
-    const processedRows: ParsedRow[] = rawParsedData.map((rawRow, index) => {
+  const processMappings = (rawData = rawParsedData, currentMappings = mappings) => {
+    const processedRows: ParsedRow[] = rawData.map((rawRow, index) => {
       const row: Partial<ParsedRow> = {
         id: crypto.randomUUID(),
         created_at: new Date().toISOString(),
       };
 
       // Apply mappings
-      (Object.entries(mappings) as [string, string][]).forEach(([csvHeader, targetKey]) => {
-        if (targetKey !== 'ignore') {
-           (row as any)[targetKey] = (rawRow as Record<string, any>)[csvHeader];
+      (Object.entries(currentMappings) as [string, string][]).forEach(([csvHeader, targetKey]) => {
+        if (targetKey && targetKey !== 'ignore') {
+           const val = (rawRow as Record<string, any>)[csvHeader];
+           (row as any)[targetKey] = val !== undefined && val !== null ? String(val) : '';
         }
       });
 
@@ -177,7 +307,40 @@ export default function UploadCandidates() {
   };
 
   const updateRow = (id: string, field: keyof ParsedRow, value: string) => {
-    setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+    setRows(prev => prev.map(r => {
+      if (r.id !== id) return r;
+      const updated = { ...r, [field]: value };
+      
+      const errors = [];
+      if (!updated.name || !updated.name.trim()) errors.push('Missing Name');
+      if (!updated.email || !updated.email.trim()) errors.push('Missing Email');
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (updated.email && updated.email.trim() && !emailRegex.test(updated.email.trim())) errors.push('Invalid Email Format');
+
+      updated.status = errors.length > 0 ? 'invalid' : 'valid';
+      updated.errors = errors;
+      return updated;
+    }));
+  };
+
+  const revalidateAll = () => {
+    setRows(prev => prev.map(r => {
+      const errors = [];
+      if (!r.name || !r.name.trim()) errors.push('Missing Name');
+      if (!r.email || !r.email.trim()) errors.push('Missing Email');
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (r.email && r.email.trim() && !emailRegex.test(r.email.trim())) errors.push('Invalid Email Format');
+
+      return {
+        ...r,
+        status: errors.length > 0 ? 'invalid' : 'valid',
+        errors
+      };
+    }));
+  };
+
+  const removeInvalid = () => {
+    setRows(prev => prev.filter(r => r.status === 'valid'));
   };
 
   const nextStep = () => {
@@ -190,24 +353,35 @@ export default function UploadCandidates() {
     else if (currentStep === 'preview') setCurrentStep('mapping');
   };
 
-  const finalizeUpload = async () => {
+  const finalizeUpload = async (forceAll: boolean = false) => {
     setIsUploading(true);
     setUploadStatus(null);
     
     try {
-      const validRows = rows.filter(r => r.status === 'valid').map(({ status, errors, ...rest }) => rest);
+      const batchId = `batch_${new Date().toISOString().replace(/[:T.-]/g, '').slice(0, 14)}`;
+      const targetRows = forceAll ? rows : rows.filter(r => r.status === 'valid');
+      const formattedRows = targetRows.map(({ status, errors, ...rest }) => ({
+        ...rest,
+        name: rest.name ? String(rest.name).trim() || "NULL" : "NULL",
+        email: rest.email ? String(rest.email).trim() || "NULL" : "NULL",
+        skills: rest.skills ? String(rest.skills).trim() || "NULL" : "NULL",
+        experience: rest.experience ? String(rest.experience).trim() || "NULL" : "NULL",
+        location: rest.location ? String(rest.location).trim() || "NULL" : "NULL",
+        batch_id: batchId,
+        status: status === 'valid' ? 'Valid' : 'Incomplete',
+      }));
 
-      if (validRows.length === 0) {
-        throw new Error('No valid candidates found to upload.');
+      if (formattedRows.length === 0) {
+        throw new Error(forceAll ? 'No candidates found to upload.' : 'No valid candidates found. Use Force Upload or fix errors.');
       }
 
       const { error } = await supabase
         .from('candidates')
-        .insert(validRows);
+        .insert(formattedRows);
 
       if (error) throw error;
 
-      setUploadStatus({ type: 'success', message: `${validRows.length} candidates uploaded successfully!` });
+      setUploadStatus({ type: 'success', message: `${formattedRows.length} candidates uploaded successfully!` });
     } catch (error: any) {
       console.error('Upload failed:', error);
       setUploadStatus({ type: 'error', message: error.message || 'Failed to upload candidates.' });
@@ -252,7 +426,7 @@ export default function UploadCandidates() {
               )}>
                 <div className={cn(
                   "w-8 h-8 rounded-lg flex items-center justify-center transition-colors shadow-inner",
-                  isCompleted ? "bg-emerald-500 text-white" : isActive ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-500"
+                  isCompleted ? "bg-emerald-500 text-white" : isActive ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-500"
                 )}>
                   {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : <StepIcon className="w-5 h-5" />}
                 </div>
@@ -272,7 +446,7 @@ export default function UploadCandidates() {
       </div>
 
       {/* Main Content Area */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden min-h-[500px] flex flex-col">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden min-h-[500px] flex flex-col">
         <AnimatePresence mode="wait">
           {currentStep === 'upload' && (
             <motion.div 
@@ -280,47 +454,47 @@ export default function UploadCandidates() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05 }}
-              className="flex-1 p-12 flex flex-col items-center justify-center text-center"
+              className="flex-1 p-6 flex flex-col items-center justify-center text-center"
             >
               <div 
                 onDragOver={onDragOver}
                 onDragLeave={onDragLeave}
                 onDrop={onDrop}
                 className={cn(
-                  "w-full max-w-xl aspect-[16/9] border-2 border-dashed rounded-[40px] flex flex-col items-center justify-center transition-all duration-500 group relative overflow-hidden bg-slate-50/50",
-                  isDragging ? "border-indigo-500 bg-indigo-50/50 scale-105" : "border-slate-200 hover:border-indigo-300 hover:bg-slate-50"
+                  "w-full max-w-xl aspect-[16/9] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all duration-500 group relative overflow-hidden bg-slate-50/50",
+                  isDragging ? "border-blue-500 bg-blue-50/50 scale-105" : "border-slate-200 hover:border-blue-300 hover:bg-slate-50"
                 )}
               >
                 <UploadCloud className={cn(
                   "w-20 h-20 mb-6 transition-all duration-500",
-                  isDragging ? "text-indigo-600 scale-110" : "text-slate-300 group-hover:text-indigo-400 group-hover:-translate-y-2"
+                  isDragging ? "text-blue-600 scale-110" : "text-slate-300 group-hover:text-blue-400 group-hover:-translate-y-2"
                 )} />
                 <div className="space-y-2">
-                  <p className="text-xl font-black text-slate-900">Drag & Drop Resumes Table</p>
-                  <p className="text-sm text-slate-500 font-medium">Support for .CSV, .XLS, .XLSX files</p>
+                  <p className="text-xl font-black text-slate-900">Drag & Drop Hotlist</p>
+                  <p className="text-sm text-slate-500 font-medium">Support for .CSV, .XLS, .XLSX, .PNG, .JPG</p>
                 </div>
                 
                 <input 
                   type="file" 
                   id="file-upload"
                   className="hidden" 
-                  accept=".csv,.xlsx,.xls" 
+                  accept=".csv,.xlsx,.xls,image/png,image/jpeg" 
                   onChange={handleFileChange}
                 />
                 <button 
                   onClick={() => document.getElementById('file-upload')?.click()}
-                  className="mt-8 px-8 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-black text-indigo-600 transition-all hover:bg-indigo-600 hover:text-white active:scale-95 shadow-sm"
+                  className="mt-8 px-8 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-black text-blue-600 transition-all hover:bg-blue-600 hover:text-white active:scale-95 shadow-sm"
                 >
                   Browse Files
                 </button>
 
                 {file && (
-                  <div className="absolute inset-0 bg-indigo-600 text-white flex flex-col items-center justify-center p-8 animate-in fade-in zoom-in duration-300">
-                    <div className="w-20 h-20 bg-white/20 rounded-3xl flex items-center justify-center mb-4 backdrop-blur-sm ring-1 ring-white/50">
+                  <div className="absolute inset-0 bg-blue-600 text-white flex flex-col items-center justify-center p-6 animate-in fade-in zoom-in duration-300">
+                    <div className="w-20 h-20 bg-white/20 rounded-xl flex items-center justify-center mb-4 backdrop-blur-sm ring-1 ring-white/50">
                       {file.name.endsWith('.csv') ? <FileText className="w-10 h-10" /> : <FileSpreadsheet className="w-10 h-10" />}
                     </div>
                     <p className="text-lg font-black tracking-tight">{file.name}</p>
-                    <p className="text-xs font-bold text-indigo-200 mt-1 uppercase tracking-widest">{(file.size / 1024).toFixed(1)} KB • Ready to Map</p>
+                    <p className="text-xs font-bold text-blue-200 mt-1 font-medium tracking-tight">{(file.size / 1024).toFixed(1)} KB • Ready to Map</p>
                     <button 
                         onClick={() => setFile(null)}
                         className="mt-6 p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-colors border border-white/20"
@@ -331,7 +505,7 @@ export default function UploadCandidates() {
                 )}
               </div>
 
-              <div className="mt-12 flex gap-8 items-center justify-center text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">
+              <div className="mt-12 flex gap-6 items-center justify-center text-[10px] font-black text-slate-300 font-medium tracking-tight">
                  <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                     GDPR Compliant
@@ -354,27 +528,27 @@ export default function UploadCandidates() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="flex-1 p-8"
+              className="flex-1 p-6"
             >
               <div className="max-w-3xl mx-auto space-y-6">
-                <div className="flex items-center justify-between bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50 mb-8">
+                <div className="flex items-center justify-between bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50 mb-8">
                   <div className="flex items-center gap-3">
-                    <HelpCircle className="w-5 h-5 text-indigo-600" />
-                    <p className="text-sm font-bold text-indigo-900 leading-tight">We found {csvHeaders.length} columns in your file. Please map them to our recruitment data fields.</p>
+                    <HelpCircle className="w-5 h-5 text-blue-600" />
+                    <p className="text-sm font-bold text-blue-900 leading-tight">We found {csvHeaders.length} columns in your file. Please map them to our recruitment data fields.</p>
                   </div>
                 </div>
 
                 <div className="space-y-3">
                   {csvHeaders.map((col) => (
-                    <div key={col} className="flex items-center gap-4 bg-slate-50 p-4 rounded-[20px] border border-slate-100 hover:border-indigo-200 transition-colors group">
+                    <div key={col} className="flex items-center gap-4 bg-slate-50 p-4 rounded-[20px] border border-slate-100 hover:border-blue-200 transition-colors group">
                       <div className="flex-1 flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-slate-300 group-hover:bg-indigo-500 transition-colors" />
+                        <div className="w-2 h-2 rounded-full bg-slate-300 group-hover:bg-blue-500 transition-colors" />
                         <span className="text-sm font-bold text-slate-700">{col}</span>
                       </div>
                       <ArrowRight className="w-4 h-4 text-slate-300" />
                       <div className="w-64">
                         <select 
-                          className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-4 focus:ring-indigo-100 transition-all uppercase tracking-tight"
+                          className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-100 transition-all tracking-tight"
                           value={mappings[col] || 'ignore'}
                           onChange={(e) => setMappings({ ...mappings, [col]: e.target.value })}
                         >
@@ -402,33 +576,32 @@ export default function UploadCandidates() {
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{rows.filter(r => r.status === 'valid').length} Valid</span>
+                      <span className="text-[10px] font-black text-slate-600 font-medium tracking-tight">{rows.filter(r => r.status === 'valid').length} Valid</span>
                     </div>
                     <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
                       <AlertTriangle className="w-4 h-4 text-amber-500" />
-                      <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{rows.filter(r => r.status !== 'valid').length} Errors</span>
+                      <span className="text-[10px] font-black text-slate-600 font-medium tracking-tight">{rows.filter(r => r.status !== 'valid').length} Errors</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                     <button className="text-[10px] font-black text-red-600 uppercase tracking-widest hover:underline px-2">Remove Invalid</button>
-                     <button className="flex items-center gap-1 text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:bg-white px-3 py-1.5 rounded-xl border border-transparent hover:border-slate-200 transition-all">
+                     <button onClick={removeInvalid} className="text-[10px] font-black text-red-600 font-medium tracking-tight hover:underline px-2">Remove Invalid</button>
+                     <button onClick={revalidateAll} className="flex items-center gap-1 text-[10px] font-black text-blue-600 font-medium tracking-tight hover:bg-white px-3 py-1.5 rounded-xl border border-transparent hover:border-slate-200 transition-all">
                         <RefreshCcw className="w-3 h-3" />
                         Re-validate
                      </button>
                   </div>
                </div>
 
-               <div className="overflow-x-auto flex-1">
+               <div className="overflow-auto flex-1">
                  <table className="w-full text-left table-fixed min-w-[1200px]">
                     <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-400 tracking-widest border-b border-slate-100">
                       <tr>
-                        <th className="px-6 py-4 w-12">#</th>
-                        <th className="px-6 py-4 w-12">IDX</th>
-                        <th className="px-6 py-4 w-40">Status</th>
-                        <th className="px-6 py-4 w-64">Candidate Info</th>
-                        <th className="px-6 py-4 w-64">Skills & Exp</th>
+                        <th className="px-6 py-4 w-16">#</th>
+                        <th className="px-6 py-4 w-32">Status</th>
+                        <th className="px-6 py-4 w-72">Candidate Info</th>
+                        <th className="px-6 py-4 w-80">Skills & Exp</th>
                         <th className="px-6 py-4 w-48">Metadata</th>
-                        <th className="px-6 py-4 w-20"></th>
+                        <th className="px-6 py-4 w-16"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -437,9 +610,9 @@ export default function UploadCandidates() {
                           <td className="px-6 py-4 text-[10px] font-black text-slate-300">{i + 1}</td>
                           <td className="px-6 py-4">
                             <span className={cn(
-                              "px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest inline-flex items-center gap-1.5 shadow-sm border",
+                              "px-2.5 py-1 rounded-full text-[9px] font-black font-medium tracking-tight inline-flex items-center gap-1.5 shadow-sm border",
                               row.status === 'valid' ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
-                              row.status === 'duplicate' ? "bg-indigo-50 text-indigo-700 border-indigo-100" :
+                              row.status === 'duplicate' ? "bg-blue-50 text-blue-700 border-blue-100" :
                               "bg-red-50 text-red-700 border-red-100"
                             )}>
                               {row.status === 'valid' ? <CheckCircle2 className="w-3 h-3" /> : 
@@ -454,7 +627,7 @@ export default function UploadCandidates() {
                                  onChange={(e) => updateRow(row.id, 'name', e.target.value)}
                                  placeholder="Candidate Name"
                                  className={cn(
-                                  "w-full bg-transparent p-1 px-2 rounded-lg text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all uppercase tracking-tight",
+                                  "w-full bg-transparent p-1 px-2 rounded-lg text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all tracking-tight truncate",
                                   row.status === 'incomplete' && !row.name ? "bg-red-50/50 ring-1 ring-red-200" : ""
                                  )}
                                />
@@ -463,7 +636,7 @@ export default function UploadCandidates() {
                                  onChange={(e) => updateRow(row.id, 'email', e.target.value)}
                                  placeholder="Email Address"
                                  className={cn(
-                                  "w-full bg-transparent p-1 px-2 rounded-lg text-[11px] font-semibold outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all text-slate-400",
+                                  "w-full bg-transparent p-1 px-2 rounded-lg text-[11px] font-semibold outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all text-slate-400 truncate",
                                   (row.status === 'invalid' || row.status === 'duplicate') && !row.email ? "bg-red-50/50 ring-1 ring-red-200" : ""
                                  )}
                                />
@@ -472,14 +645,14 @@ export default function UploadCandidates() {
                           <td className="px-6 py-4">
                              <div className="space-y-2">
                                 <div className="flex flex-wrap gap-1">
-                                   {(row.skills || '').split(',').slice(0, 3).map((skill, idx) => (
-                                     <span key={`${skill.trim()}-${idx}`} className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase tracking-tighter border border-slate-200/50">
-                                       {skill.trim()}
+                                   {(row.skills || '').split(/[,/]/).map(s => s.trim()).filter(Boolean).slice(0, 3).map((skill, idx) => (
+                                     <span key={`${skill}-${idx}`} className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold tracking-tighter border border-slate-200/50 truncate max-w-[150px] inline-block">
+                                       {skill}
                                      </span>
                                    ))}
-                                   {(row.skills || '').split(',').length > 3 && (
-                                     <span className="px-2 py-0.5 bg-slate-50 text-slate-400 rounded text-[9px] font-bold uppercase tracking-tighter">
-                                       +{(row.skills || '').split(',').length - 3}
+                                   {(row.skills || '').split(/[,/]/).filter(Boolean).length > 3 && (
+                                     <span className="px-2 py-0.5 bg-slate-50 text-slate-400 rounded text-[9px] font-bold tracking-tighter">
+                                       +{(row.skills || '').split(/[,/]/).filter(Boolean).length - 3}
                                      </span>
                                    )}
                                 </div>
@@ -487,15 +660,15 @@ export default function UploadCandidates() {
                                    <input 
                                      value={row.experience} 
                                      onChange={(e) => updateRow(row.id, 'experience', e.target.value)}
-                                     className="w-20 bg-transparent text-[10px] font-black text-indigo-600 uppercase tracking-widest outline-none"
+                                     className="w-20 bg-transparent text-[10px] font-black text-blue-600 font-medium tracking-tight outline-none"
                                    />
                                 </div>
                              </div>
                           </td>
                           <td className="px-6 py-4">
                              <div className="flex flex-col gap-1">
-                               <span className="text-[10px] font-black text-slate-900 uppercase tracking-tight">{row.location}</span>
-                               <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{row.created_at.split(' ')[0]}</span>
+                               <span className="text-[10px] font-black text-slate-900 tracking-tight truncate max-w-[150px]" title={row.location}>{row.location}</span>
+                               <span className="text-[9px] font-bold text-slate-400 font-medium tracking-tight">{row.created_at.split(' ')[0]}</span>
                              </div>
                           </td>
                           <td className="px-6 py-4 text-right">
@@ -520,7 +693,7 @@ export default function UploadCandidates() {
           <button 
             onClick={prevStep}
             disabled={currentStep === 'upload'}
-            className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl text-sm font-black hover:bg-slate-50 transition-all disabled:opacity-20 active:scale-95 uppercase tracking-widest"
+            className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl text-sm font-black hover:bg-slate-50 transition-all disabled:opacity-20 active:scale-95 font-medium tracking-tight"
           >
             <ArrowLeft className="w-4 h-4" />
             Back
@@ -530,22 +703,25 @@ export default function UploadCandidates() {
              {uploadStatus?.type === 'success' ? (
                 <button 
                   onClick={() => navigate('/candidates')}
-                  className="flex items-center gap-2 px-8 py-3 bg-emerald-600 text-white rounded-2xl text-sm font-black shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95 uppercase tracking-widest"
+                  className="flex items-center gap-2 px-8 py-3 bg-emerald-600 text-white rounded-2xl text-sm font-black shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95 font-medium tracking-tight"
                 >
                   View Candidate Pool
                   <ArrowRight className="w-4 h-4" />
                 </button>
              ) : (
                <>
-                 {currentStep === 'preview' && (
-                    <button className="px-6 py-3 bg-white border border-slate-200 text-slate-900 rounded-2xl text-sm font-black shadow-sm hover:bg-slate-50 transition-all active:scale-95 uppercase tracking-widest">
-                      Save as Draft
+                 {currentStep === 'preview' && rows.some(r => r.status !== 'valid') && (
+                    <button 
+                      onClick={() => finalizeUpload(true)}
+                      className="px-6 py-3 bg-white border border-red-200 text-red-600 rounded-2xl text-sm font-black shadow-sm hover:bg-red-50 transition-all active:scale-95 font-medium tracking-tight"
+                    >
+                      Force Upload All
                     </button>
                  )}
                  <button 
-                  onClick={currentStep === 'preview' ? finalizeUpload : nextStep}
+                  onClick={currentStep === 'preview' ? () => finalizeUpload(false) : nextStep}
                   disabled={(currentStep === 'upload' && !file) || isUploading}
-                  className="flex items-center gap-2 px-8 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all disabled:opacity-50 active:scale-95 uppercase tracking-widest"
+                  className="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-2xl text-sm font-black shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all disabled:opacity-50 active:scale-95 font-medium tracking-tight"
                 >
                   {isUploading ? (
                     <>
@@ -554,7 +730,7 @@ export default function UploadCandidates() {
                     </>
                   ) : (
                     <>
-                      {currentStep === 'preview' ? 'Finalize Upload' : 'Continue'}
+                      {currentStep === 'preview' ? 'Finalize Valid' : 'Continue'}
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
