@@ -1,7 +1,30 @@
 {
-  "name": "react-example",
+  "name": "vdrive",
+  "version": "1.0.0",
+  "description": "End-to-End Recruitment Operations Dashboard - Streamline hiring with AI-powered candidate matching and webhook orchestration",
+  "author": "Aayush Kumar Dev",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aayushkumardev09-creator/vdrive.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aayushkumardev09-creator/vdrive/issues"
+  },
+  "homepage": "https://github.com/aayushkumardev09-creator/vdrive#readme",
+  "keywords": [
+    "recruitment",
+    "hiring",
+    "dashboard",
+    "candidate-tracking",
+    "ai",
+    "supabase",
+    "react",
+    "typescript",
+    "vite",
+    "tailwind"
+  ],
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
@@ -13,7 +36,9 @@
     "start": "cd backend && npm start",
     "preview": "vite preview",
     "clean": "rm -rf dist backend/dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\" \"backend/src/**/*.{ts,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,json,css}\" \"backend/src/**/*.{ts,json}\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
@@ -36,9 +61,14 @@
     "autoprefixer": "^10.4.21",
     "concurrently": "^10.0.3",
     "esbuild": "^0.25.0",
+    "prettier": "^3.1.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=10.0.0"
   }
 }
